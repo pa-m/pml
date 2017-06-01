@@ -1,0 +1,244 @@
+<h1>Prediction Assignment Writeup</h1>
+
+<h2>Load training and data</h2>
+
+<p><code>r
+library(kernlab)
+library(caret)
+</code></p>
+
+<pre><code>## Loading required package: lattice
+
+## Loading required package: ggplot2
+
+## 
+## Attaching package: 'ggplot2'
+
+## The following object is masked from 'package:kernlab':
+## 
+##     alpha
+</code></pre>
+
+<p><code>r
+library(ggplot2)
+</code></p>
+
+<p>Set seed for reproducibility.</p>
+
+<p><code>r
+set.seed(123)
+</code></p>
+
+<p>Load pml-traing.csv, remove unwanted columns, and do pca to reduce features number.</p>
+
+<p>``` r
+training = read.csv('pml-training.csv')</p>
+
+<h1>prepare data</h1>
+
+<h1>remove columns with NA</h1>
+
+<p>training=training[,colSums(is.na(training))==0]</p>
+
+<h1>remove columns with empty string</h1>
+
+<p>training=training[,colSums(training=='')==0]</p>
+
+<h1>training=training[,names(training)%in% names(testing)]</h1>
+
+<h1>pre-preprocessing: remove unwanted columns</h1>
+
+<p>prep=function(t) data.frame(
+  #X=t$X,u=as.integer(t$user<em>name),t=as.double(t$raw</em>timestamp<em>part</em>1-min(training$raw<em>timestamp</em>part<em>1))+1e-6*as.double(t$raw</em>timestamp<em>part</em>2),neww=ifelse(t$new_window=='yes',1,0),
+  t[,8:dim(training)[2]-1])
+train1=prep(training)</p>
+
+<h1>2nd phase of preprocessing: eliminate features with near-zero variance and do pca to minimize number of features</h1>
+
+<p>pre=preProcess(train1,method=c('nzv','pca'))</p>
+
+<p>train2=data.frame(predict(pre,train1),classe=training$classe)
+```</p>
+
+<p>Split our preprocessed data into a training part (train2train) and a test part (test2test), so we can measure training and testing accuracy.</p>
+
+<p>``` r</p>
+
+<h1>split preprocessed dataset to have a test set with outcome, to perform cross validation</h1>
+
+<p>inTrain = createDataPartition(training$classe,p=0.9,list=FALSE)
+train2train = train2[inTrain,]
+train2test =train2[-inTrain,]
+featCols=1:dim(train2train)[2]-1</p>
+
+<p>showAccuracy=function (model) {
+  train2trainPredict=predict(model,train2train[,featCols])
+  train2testPredict=predict(model,train2test[,featCols])
+  print('Training accuracy:');print(sum(train2trainPredict==train2train$classe)/dim(train2train)[1]) 
+  print('Testing accuracy:');print(sum(train2testPredict==train2test$classe)/dim(train2test)[1])
+}
+```</p>
+
+<p>Try various classification methods</p>
+
+<p>``` r</p>
+
+<h1>random forest is too long, glm is for binary classifiers only, rpart gives poor accuracy,</h1>
+
+<h1>try rpart</h1>
+
+<p>print('Trying rpart...')
+```</p>
+
+<pre><code>## [1] "Trying rpart..."
+</code></pre>
+
+<p><code>r
+model_rpart=train(train2train[,featCols],train2train$classe,method='rpart')
+</code></p>
+
+<pre><code>## Loading required package: rpart
+</code></pre>
+
+<p><code>r
+showAccuracy(model_rpart) # training:0.39 testing:0.41
+</code></p>
+
+<pre><code>## [1] "Training accuracy:"
+## [1] 0.3919148
+## [1] "Testing accuracy:"
+## [1] 0.3693878
+</code></pre>
+
+<p>``` r</p>
+
+<h1>try ksvm</h1>
+
+<p>print('Trying ksvm...')
+```</p>
+
+<pre><code>## [1] "Trying ksvm..."
+</code></pre>
+
+<p><code>r
+model_svm=ksvm(classe~.,data=train2train)
+showAccuracy(model_svm) # training:0.93 testing:0.91
+</code></p>
+
+<pre><code>## [1] "Training accuracy:"
+## [1] 0.9330767
+## [1] "Testing accuracy:"
+## [1] 0.9367347
+</code></pre>
+
+<p>``` r</p>
+
+<h1>try lssvm</h1>
+
+<p>print('Trying lssvm...')
+```</p>
+
+<pre><code>## [1] "Trying lssvm..."
+</code></pre>
+
+<p><code>r
+model_lssvm=lssvm(classe~.,data=train2train)
+</code></p>
+
+<pre><code>## Using automatic sigma estimation (sigest) for RBF or laplace kernel
+</code></pre>
+
+<p><code>r
+showAccuracy(model_lssvm) # training:0.69 testing:0.68
+</code></p>
+
+<pre><code>## [1] "Training accuracy:"
+## [1] 0.695278
+## [1] "Testing accuracy:"
+## [1] 0.6938776
+</code></pre>
+
+<p>``` r</p>
+
+<h1>try boosting</h1>
+
+<h1>library(gbm)</h1>
+
+<h1>print('Trying boosting...')</h1>
+
+<h1>model_gbm = train(classe~.,method='gbm',data=train2train) #too long, aborted.</h1>
+
+<h1>showAccuracy(model_gbm)</h1>
+
+<p>```</p>
+
+<p>``` r</p>
+
+<h1>try bagging</h1>
+
+<p>print('Trying bag...')
+```</p>
+
+<pre><code>## [1] "Trying bag..."
+</code></pre>
+
+<p><code>r
+model_bag=bag(train2train[,featCols],train2train$classe,bagControl=bagControl(fit=ctreeBag$fit,predict = ctreeBag$pred,aggregate = ctreeBag$aggregate,allowParallel = TRUE))
+</code></p>
+
+<pre><code>## Warning: executing %dopar% sequentially: no parallel backend registered
+</code></pre>
+
+<p><code>r
+showAccuracy(model_bag) #training 0.97 testing: 0.91
+</code></p>
+
+<pre><code>## [1] "Training accuracy:"
+## [1] 0.9690862
+## [1] "Testing accuracy:"
+## [1] 0.9341837
+</code></pre>
+
+<p>Bagging gives the best result, use this method to predict classe for pml-testing.csv.</p>
+
+<p>``` r</p>
+
+<h1>predictions on pml-testing.csv</h1>
+
+<p>testing = read.csv('pml-testing.csv')
+testing=testing[,names(testing)%in% names(training)]
+testingPredict=predict(model_bag,predict(pre,prep(testing))[,featCols])
+print('Predictions on pml-testing.csv using best method(bag):')
+```</p>
+
+<pre><code>## [1] "Predictions on pml-testing.csv using best method(bag):"
+</code></pre>
+
+<p><code>r
+print(data.frame(X=testing$X,testingPredict))
+</code></p>
+
+<pre><code>##     X testingPredict
+## 1   1              B
+## 2   2              A
+## 3   3              A
+## 4   4              A
+## 5   5              A
+## 6   6              C
+## 7   7              D
+## 8   8              B
+## 9   9              A
+## 10 10              A
+## 11 11              B
+## 12 12              B
+## 13 13              B
+## 14 14              A
+## 15 15              E
+## 16 16              E
+## 17 17              A
+## 18 18              B
+## 19 19              B
+## 20 20              B
+</code></pre>
+
+<p>Thanks for reading.</p>
